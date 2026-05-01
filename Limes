@@ -1,0 +1,73 @@
+<script>
+        const editor = document.getElementById('editor');
+        const lineNumbers = document.getElementById('line-numbers');
+        const filenameInput = document.getElementById('filename');
+        const storageToggle = document.getElementById('storage-toggle');
+        const savedList = document.getElementById('saved-list');
+
+        const updateLines = () => {
+            const lines = editor.value.split('\n').length;
+            lineNumbers.innerHTML = Array.from({length: lines}, (_, i) => i + 1).join('<br>');
+            document.getElementById('stats').innerText = "L: " + lines;
+        };
+
+        editor.addEventListener('input', updateLines);
+
+        // SYNC SCROLLING
+        editor.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = editor.scrollTop;
+        });
+        
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const s = editor.selectionStart;
+                editor.value = editor.value.substring(0, s) + "    " + editor.value.substring(editor.selectionEnd);
+                editor.selectionEnd = s + 4;
+                updateLines();
+            }
+        });
+
+        const triggerRun = () => {
+            const blob = new Blob([editor.value], { type: 'text/html' });
+            window.open(URL.createObjectURL(blob), '_blank');
+        };
+        document.getElementById('run-top').onclick = triggerRun;
+        document.getElementById('run-bottom').onclick = triggerRun;
+
+        function syncHistory(name, content) {
+            let history = JSON.parse(localStorage.getItem('app_history') || '[]');
+            history = [{name, content, ts: Date.now()}, ...history.filter(i => i.name !== name)].slice(0, 20);
+            localStorage.setItem('app_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            let history = JSON.parse(localStorage.getItem('app_history') || '[]');
+            savedList.innerHTML = '<option value="">-- Hist --</option>';
+            history.forEach(i => savedList.add(new Option(i.name, i.name)));
+        }
+
+        window.handleGlobalSave = () => {
+            let name = filenameInput.value.trim() || "untitled.html";
+            if (!name.includes('.')) name += ".html";
+            if (storageToggle.checked) {
+                syncHistory(name, editor.value);
+            } else {
+                const a = document.createElement("a");
+                a.download = name;
+                a.href = window.URL.createObjectURL(new Blob([editor.value], { type: 'text/plain' }));
+                a.click();
+            }
+        };
+
+        storageToggle.onchange = () => { document.getElementById('toggle-label').innerText = storageToggle.checked ? "APP" : "PHONE"; };
+        savedList.onchange = () => {
+            let history = JSON.parse(localStorage.getItem('app_history') || '[]');
+            let item = history.find(i => i.name === savedList.value);
+            if (item) { editor.value = item.content; filenameInput.value = item.name; updateLines(); }
+        };
+
+        renderHistory();
+        updateLines();
+    </script>
